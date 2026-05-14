@@ -1,0 +1,256 @@
+{
+  "name": "Email Meeting Extractor",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "8474c28e-5c6d-4721-ad61-246662a2264e",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "bearer YOUR-API-KEY"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            },
+            {}
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "body": "={\n  \"model\": \"llama-3.1-8b-instant\",\n  \"temperature\": 0,\n  \"response_format\": {\n    \"type\": \"json_object\"\n  },\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a backend entity-extraction API. Read unstructured email text, identify scheduling requests, and return the data strictly as a parsed JSON object. Do not output markdown, filler, or explanations.\\n\\nCRITICAL CONTEXT:\\nThe current date and time is: {{$now}} (Timezone: IST). Use this to calculate relative dates.\\n\\nEXTRACTION RULES:\\n1. Identify if the email contains a request for a meeting.\\n2. Extract the 'topic' in 5 words or less.\\n3. Extract the 'date' in strictly YYYY-MM-DD format.\\n4. Extract the 'startTime' in 24-hour HH:MM format.\\n5. Extract or calculate the 'endTime' in 24-hour HH:MM format. Default to 30-min duration if none specified.\\n6. If no valid request, set 'isMeeting' to false and others null.\\n\\nREQUIRED JSON SCHEMA:\\n{\\n  \\\"isMeeting\\\": boolean,\\n  \\\"topic\\\": \\\"string\\\",\\n  \\\"date\\\": \\\"YYYY-MM-DD\\\",\\n  \\\"startTime\\\": \\\"HH:MM\\\",\\n  \\\"endTime\\\": \\\"HH:MM\\\"\\n}\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Subject: Sync tomorrow\\nBody: Hey Sumang, can we schedule a technical sync regarding the backend architecture tomorrow at 3:00 PM?\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        528,
+        304
+      ],
+      "id": "577c5663-6a05-474c-8a9b-25e0504c1e2e",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "const groqOutput = $input.first().json.choices[0].message.content;\nreturn JSON.parse(groqOutput);"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        736,
+        304
+      ],
+      "id": "489d8051-0f61-42e7-b045-281c769ab5f9",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "30bd1eba-0aa2-4dae-b39b-ac54917d6024",
+              "leftValue": "={{ $json.isMeeting }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        944,
+        304
+      ],
+      "id": "ded6483f-1d93-4995-bede-29fc9d26caa7",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "resource": "calendar",
+        "calendar": {
+          "__rl": true,
+          "value": "YOUR-EMAIL",
+          "mode": "list",
+          "cachedResultName": "YOUR-EMAIL"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        1152,
+        304
+      ],
+      "id": "247fc4ae-06ea-4a80-88db-47cd6e85b6b0",
+      "name": "Get availability in a calendar",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "FHuN050cHOpXpN4O",
+          "name": "Google Calendar OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "SENDER-MAIL",
+        "subject": "=sender",
+        "emailType": "text",
+        "message": "={{ $json.choices[0].message.content }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1568,
+        304
+      ],
+      "id": "e995235b-b885-47db-94f2-5ac1d9caff78",
+      "name": "Send a message",
+      "webhookId": "baf83e66-d344-493a-9289-132b4b62bc25",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "MXKhoHIUD5V95gLq",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer API-KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama-3.1-8b-instant\",\n  \"temperature\": 0.7,\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a direct, professional assistant. Write a short, natural email confirming a meeting. CRITICAL RULE: You must output the exact, final email text. Do NOT use any placeholders, brackets, or variables like [Recipient], [Name], or [Insert here] under any circumstances.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Write an email confirming our meeting about '{{ $node['Code in JavaScript'].json.topic }}'. The meeting is scheduled for {{ $node['Code in JavaScript'].json.date }} at {{ $node['Code in JavaScript'].json.startTime }} IST. Start the email simply with 'Hello,' and sign off exactly as 'Best, Sumang'.\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1360,
+        304
+      ],
+      "id": "c5b8120a-663b-4c68-984b-7a13e25a621b",
+      "name": "HTTP Request1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Get availability in a calendar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get availability in a calendar": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "35198665-a20b-4ea6-b354-a70ea68beec1",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "8a2117788becc91ffec5bbfae9421b06aadaa07abda2be44d888d05187300441"
+  },
+  "id": "m2gTe3GhaSeq5xnB",
+  "tags": []
+}
